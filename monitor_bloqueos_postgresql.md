@@ -1,11 +1,20 @@
-# Monitor de Bloqueos en PostgreSQL
-
-Consultas SQL para análisis de bloqueos, bloqueadores y tiempos de espera.
+# Monitor de Bloqueos en PostgreSQL  
+Consultas SQL del 1 al 6 para análisis de bloqueos, bloqueadores y tiempos de espera, con comentarios y ejemplos de salida.
 
 ---
 
-## 1. Ver bloqueos actuales
+# 1. Ver bloqueos actuales  
 
+## Comentario
+Esta consulta muestra todas las sesiones que se encuentran actualmente esperando un lock.  
+Es el primer punto para detectar contención de recursos.
+
+## Qué muestra
+- Sesiones cuyo `wait_event_type = 'Lock'`.
+- Tiempo que llevan esperando.
+- SQL que originó la espera.
+
+## SQL
 ```sql
 SELECT  
     pid,
@@ -22,8 +31,27 @@ WHERE wait_event_type = 'Lock'
 ORDER BY query_start;
 ```
 
-## 2. Identificar quién bloquea a quién
+## Ejemplo de salida
+```
+ pid  | usename  | application_name | wait_event_type | wait_event   | state  | running_for |                query
+------+----------+------------------+-----------------+--------------+--------+-------------+-----------------------------------------
+ 9821 | reportes | psql             | Lock            | relation     | active | 00:02:13    | UPDATE usuario SET estado='A' WHERE id=1
+```
 
+---
+
+# 2. Identificar quién bloquea a quién  
+
+## Comentario
+Permite identificar la relación **bloqueado → bloqueador**, incluyendo el SQL de ambos procesos.
+
+## Qué muestra
+- PID del proceso bloqueado.
+- PID del proceso bloqueador.
+- Tiempo de ejecución.
+- Consultas involucradas en el bloqueo.
+
+## SQL
 ```sql
 SELECT
     bl.pid AS blocked_pid,
@@ -48,8 +76,26 @@ JOIN pg_stat_activity lk ON lk_lk.pid = lk.pid
 WHERE bl_lk.granted = false;
 ```
 
-## 3. Ver locks por tabla
+## Ejemplo de salida
+```
+blocked_pid | blocked_duration | blocked_query                     | blocking_pid | blocking_duration | blocking_query
+------------+------------------+----------------------------------+--------------+-------------------+-------------------------------------------
+      9821  | 00:02:13         | UPDATE usuario SET ...           |     9773     | 00:05:41          | ALTER TABLE usuario ADD COLUMN x int
+```
 
+---
+
+# 3. Ver locks a nivel de tabla  
+
+## Comentario
+Lista todos los locks activos, mostrando el tipo de lock (mode), la tabla y si está concedido.
+
+## Qué muestra
+- Locks concedidos y no concedidos.
+- Tipo de lock (Share, Exclusive, RowExclusive…).
+- Qué proceso tiene el lock y cuál es su consulta.
+
+## SQL
 ```sql
 SELECT 
     locktype,
@@ -67,8 +113,27 @@ WHERE relation IS NOT NULL
 ORDER BY relation, granted DESC;
 ```
 
-## 4. Tiempo de espera usando pg_blocking_pids()
+## Ejemplo de salida
+```
+ locktype |  table   |      mode       | granted |  pid  | state  | running_for |                 query
+----------+----------+-----------------+---------+-------+--------+-------------+-----------------------------------------------
+ relation | usuario  | RowExclusiveLock| t       | 9773  | active | 00:05:41    | ALTER TABLE usuario ADD COLUMN x int
+ relation | usuario  | AccessShareLock | f       | 9821  | active | 00:02:13    | UPDATE usuario SET ...
+```
 
+---
+
+# 4. Ver tiempo de espera usando pg_blocking_pids()  
+
+## Comentario
+Consulta simple para ver si un proceso está bloqueado y quién lo bloquea.
+
+## Qué muestra
+- El PID del bloqueador.
+- La consulta bloqueada.
+- Tiempo de ejecución.
+
+## SQL
 ```sql
 SELECT
     pid,
@@ -79,8 +144,26 @@ FROM pg_stat_activity
 WHERE cardinality(pg_blocking_pids(pid)) > 0;
 ```
 
-## 5. Ver sentencia del bloqueador
+## Ejemplo de salida
+```
+ pid  | running_for | blocking_pids |               query
+------+-------------+----------------+-----------------------------------------
+ 9821 | 00:02:13    | {9773}         | UPDATE usuario SET estado='A' WHERE id=1
+```
 
+---
+
+# 5. Ver la sentencia del bloqueador  
+
+## Comentario
+Muestra directamente la consulta de los procesos que están bloqueando a otros.
+
+## Qué muestra
+- PID del bloqueador.
+- Consulta activa.
+- Tiempo de ejecución.
+
+## SQL
 ```sql
 SELECT 
     pid,
@@ -94,8 +177,25 @@ WHERE pid IN (
 );
 ```
 
-## 6. Sesiones ejecutando más de 3 minutos
+## Ejemplo de salida
+```
+ pid  | duration |                 query
+------+----------+----------------------------------------------
+ 9773 | 00:05:41 | ALTER TABLE usuario ADD COLUMN x int
+```
 
+---
+
+# 6. Ver sesiones que llevan más de X tiempo ejecutando  
+
+## Comentario
+Ayuda a detectar consultas largas que pueden causar bloqueos o retenciones de recursos.
+
+## Qué muestra
+- Sesiones activas por más de 3 minutos.
+- Estado, evento de espera y consulta ejecutada.
+
+## SQL
 ```sql
 SELECT 
     pid,
@@ -109,3 +209,13 @@ FROM pg_stat_activity
 WHERE now() - query_start > interval '3 minutes'
 ORDER BY running_for DESC;
 ```
+
+## Ejemplo de salida
+```
+ pid  | usename  |    state    | running_for |               query
+------+----------+-------------+-------------+-----------------------------------------
+ 9773 | admin    | active      | 00:05:41    | ALTER TABLE usuario ADD COLUMN x int
+ 9821 | reportes | active      | 00:02:13    | UPDATE usuario SET ...
+```
+
+---
