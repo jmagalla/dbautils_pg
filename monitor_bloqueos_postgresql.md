@@ -5,9 +5,7 @@ Consultas SQL del 1 al 6 para análisis de bloqueos, bloqueadores y tiempos de e
 
 # 1. Ver bloqueos actuales  
 
-## Comentario
-Esta consulta muestra todas las sesiones que se encuentran actualmente esperando un lock.  
-Es el primer punto para detectar contención de recursos.
+Esta consulta muestra todas las sesiones que se encuentran actualmente esperando un lock. Es el primer punto para detectar contención de recursos.
 
 ## Qué muestra
 - Sesiones cuyo `wait_event_type = 'Lock'`.
@@ -42,7 +40,6 @@ ORDER BY query_start;
 
 # 2. Identificar quién bloquea a quién  
 
-## Comentario
 Permite identificar la relación **bloqueado → bloqueador**, incluyendo el SQL de ambos procesos.
 
 ## Qué muestra
@@ -87,7 +84,6 @@ blocked_pid | blocked_duration | blocked_query                     | blocking_pi
 
 # 3. Ver locks a nivel de tabla  
 
-## Comentario
 Lista todos los locks activos, mostrando el tipo de lock (mode), la tabla y si está concedido.
 
 ## Qué muestra
@@ -125,7 +121,6 @@ ORDER BY relation, granted DESC;
 
 # 4. Ver tiempo de espera usando pg_blocking_pids()  
 
-## Comentario
 Consulta simple para ver si un proceso está bloqueado y quién lo bloquea.
 
 ## Qué muestra
@@ -155,7 +150,6 @@ WHERE cardinality(pg_blocking_pids(pid)) > 0;
 
 # 5. Ver la sentencia del bloqueador  
 
-## Comentario
 Muestra directamente la consulta de los procesos que están bloqueando a otros.
 
 ## Qué muestra
@@ -188,7 +182,6 @@ WHERE pid IN (
 
 # 6. Ver sesiones que llevan más de X tiempo ejecutando  
 
-## Comentario
 Ayuda a detectar consultas largas que pueden causar bloqueos o retenciones de recursos.
 
 ## Qué muestra
