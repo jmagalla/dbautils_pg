@@ -98,7 +98,7 @@ SELECT
     relation::regclass AS table,
     mode,
     granted,
-    pid,
+    pg_locks.pid,
     pg_stat_activity.query,
     pg_stat_activity.state,
     pg_stat_activity.query_start,
